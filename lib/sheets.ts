@@ -546,7 +546,6 @@ export async function addApontamento(a: {
     }
   }
   const novoId = `APO-${String(ultimoNumero + 1).padStart(3, '0')}`
-
   // 3. Escrever TUDO (incluindo o ID na coluna B)
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
@@ -563,8 +562,64 @@ export async function addApontamento(a: {
   })
   return 'ok'
 }
+export async function addApontamentosBatch(params: {
+  data: string
+  obra: string
+  funcionarios: Array<{
+    funcionario: string
+    tipo: string
+    almoco: string
+    veiculo: string
+    obs: string
+  }>
+}) {
+  const { data, obra, funcionarios } = params
+  const qtd = funcionarios.length
+  if (qtd === 0) return { ids: [] }
 
+  const getRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "'Apontamento Diário'!A:A",
+  })
+  const linhas = getRes.data.values || []
+  const proximaLinha = linhas.length + 1
 
+  const resIds = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "'Apontamento Diário'!B:B",
+  })
+  const idsExistentes = resIds.data.values || []
+  let ultimoNumero = 0
+  for (const row of idsExistentes) {
+    const id = (row[0] || '').toString().trim()
+    if (id.startsWith('APO-')) {
+      const num = parseInt(id.replace('APO-', ''), 10)
+      if (!isNaN(num) && num > ultimoNumero) {
+        ultimoNumero = num
+      }
+    }
+  }
+
+  const ids: string[] = []
+  const dataValues: string[][] = []
+  for (let i = 0; i < qtd; i++) {
+    const f = funcionarios[i]
+    const novoId = `APO-${String(ultimoNumero + i + 1).padStart(3, '0')}`
+    ids.push(novoId)
+    dataValues.push([data, novoId, f.funcionario, f.tipo, obra, f.almoco, f.veiculo, '', f.obs])
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `'Apontamento Diário'!A${proximaLinha}:I${proximaLinha + qtd - 1}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: dataValues,
+    },
+  })
+
+  return { ids }
+}
 function parseDataBrasil(dataStr: string): Date | null {
   // Tenta DD/MM/AAAA
   const parts = dataStr.split('/')
