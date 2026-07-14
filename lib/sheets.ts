@@ -472,6 +472,7 @@ export async function addTransferencia(t: {
 }) {
   const hojeStr = hoje()
 
+  // 1. Descobrir a próxima linha vazia
   const getRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: "'Transferências'!A:A",
@@ -479,13 +480,31 @@ export async function addTransferencia(t: {
   const linhas = getRes.data.values || []
   const proximaLinha = linhas.length + 1
 
-  // Col A = vazio (ID planilha), Col B = data, Cols C-H = dados
+  // 2. Gerar o próximo ID automático (TRA-001, TRA-002...)
+  const resIds = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "'Transferências'!A:A",
+  })
+  const idsExistentes = resIds.data.values || []
+  let ultimoNumero = 0
+  for (const row of idsExistentes) {
+    const id = (row[0] || '').toString().trim()
+    if (id.startsWith('TRA-')) {
+      const num = parseInt(id.replace('TRA-', ''), 10)
+      if (!isNaN(num) && num > ultimoNumero) {
+        ultimoNumero = num
+      }
+    }
+  }
+  const novoId = `TRA-${String(ultimoNumero + 1).padStart(3, '0')}`
+
+  // 3. Escrever TUDO (incluindo o ID na coluna A)
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
     requestBody: {
       valueInputOption: 'USER_ENTERED',
       data: [
-        { range: `'Transferências'!B${proximaLinha}`, values: [[hojeStr]] },
+        { range: `'Transferências'!A${proximaLinha}:B${proximaLinha}`, values: [[novoId, hojeStr]] },
         { range: `'Transferências'!C${proximaLinha}:H${proximaLinha}`, values: [[
           t.valor, t.caixaOrigem, t.caixaDestino,
           t.subcategoria, 'Pix', t.descricao
