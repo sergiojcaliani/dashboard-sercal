@@ -520,6 +520,8 @@ export async function addApontamento(a: {
   almoco: string; veiculo: string; obs: string
 }) {
   const hojeStr = hoje()
+
+  // 1. Descobrir a próxima linha vazia
   const getRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: "'Apontamento Diário'!A:A",
@@ -527,13 +529,31 @@ export async function addApontamento(a: {
   const linhas = getRes.data.values || []
   const proximaLinha = linhas.length + 1
 
-  // Col A = data, B = vazio (ID planilha), C-I = dados, H vazio (planilha preenche)
+  // 2. Gerar o próximo ID automático (APO-001, APO-002...)
+  const resIds = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "'Apontamento Diário'!B:B",
+  })
+  const idsExistentes = resIds.data.values || []
+  let ultimoNumero = 0
+  for (const row of idsExistentes) {
+    const id = (row[0] || '').toString().trim()
+    if (id.startsWith('APO-')) {
+      const num = parseInt(id.replace('APO-', ''), 10)
+      if (!isNaN(num) && num > ultimoNumero) {
+        ultimoNumero = num
+      }
+    }
+  }
+  const novoId = `APO-${String(ultimoNumero + 1).padStart(3, '0')}`
+
+  // 3. Escrever TUDO (incluindo o ID na coluna B)
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
     requestBody: {
       valueInputOption: 'USER_ENTERED',
       data: [
-        { range: `'Apontamento Diário'!A${proximaLinha}`, values: [[hojeStr]] },
+        { range: `'Apontamento Diário'!A${proximaLinha}:B${proximaLinha}`, values: [[hojeStr, novoId]] },
         { range: `'Apontamento Diário'!C${proximaLinha}:I${proximaLinha}`, values: [[
           a.funcionario, a.tipo, a.obra,
           a.almoco, a.veiculo, '', a.obs
@@ -543,6 +563,8 @@ export async function addApontamento(a: {
   })
   return 'ok'
 }
+
+
 function parseDataBrasil(dataStr: string): Date | null {
   // Tenta DD/MM/AAAA
   const parts = dataStr.split('/')
