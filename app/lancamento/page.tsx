@@ -42,6 +42,16 @@ export default function LancamentoPage() {
   const [desp, setDesp] = useState({ data: new Date().toISOString().split('T')[0], obra: '', fornecedor: '', categoria: '', subcategoria: '', descricao: '', valor: '', caixaOrigem: 'SJC Edif.', formaPagamento: '' })
   const [transf, setTransf] = useState({ data: new Date().toISOString().split('T')[0], caixaOrigem: 'SJC Edificações', caixaDestino: 'Sercal Engenharia', valor: '', motivo: '', descricao: '' })
   const [apon, setApon] = useState({ data: new Date().toISOString().split('T')[0], funcionario: '', tipo: 'Diária', obra: '', almoco: 'Não', veiculo: '', obs: '' })
+  const [modoApontamento, setModoApontamento] = useState<'individual' | 'lote'>('individual')
+  const [funcionarioLoteId, setFuncionarioLoteId] = useState(0)
+  const [lote, setLote] = useState({
+    data: new Date().toISOString().split('T')[0],
+    obra: '',
+    funcionarios: [] as Array<{
+      id: number; funcionario: string; tipo: string
+      almoco: string; veiculo: string; obs: string
+    }>,
+  })
 
   // Carregar obras, listas auxiliares, funcionários e veículos
   useEffect(() => {
@@ -101,7 +111,10 @@ export default function LancamentoPage() {
       })
       const result = await res.json()
       if (res.ok) {
-        setMensagem({ tipo: 'sucesso', texto: `✅ ${action === 'recebimento' ? 'Recebimento' : action === 'despesa' ? 'Despesa' : action === 'transferencia' ? 'Transferência' : 'Apontamento'} registrado com sucesso!` })
+       const msg = action === 'apontamentos-batch'
+          ? `✅ ${data?.funcionarios?.length || ''} apontamentos registrados com sucesso!`
+          : `✅ ${action === 'recebimento' ? 'Recebimento' : action === 'despesa' ? 'Despesa' : action === 'transferencia' ? 'Transferência' : 'Apontamento'} registrado com sucesso!`
+        setMensagem({ tipo: 'sucesso', texto: msg })
         return true
       } else {
         setMensagem({ tipo: 'erro', texto: result.error || 'Erro ao registrar.' })
@@ -156,6 +169,58 @@ export default function LancamentoPage() {
     if (ok) setTransf({ data: new Date().toISOString().split('T')[0], caixaOrigem: 'SJC Edificações', caixaDestino: 'Sercal Engenharia', valor: '', motivo: '', descricao: '' })
   }
 
+  function adicionarFuncionarioLote() {
+    const novoId = funcionarioLoteId + 1
+    setFuncionarioLoteId(novoId)
+    setLote(prev => ({
+      ...prev,
+      funcionarios: [...prev.funcionarios, {
+        id: novoId, funcionario: '', tipo: 'Diária',
+        almoco: 'Não', veiculo: '', obs: ''
+      }],
+    }))
+  }
+
+  function removerFuncionarioLote(id: number) {
+    setLote(prev => ({
+      ...prev,
+      funcionarios: prev.funcionarios.filter(f => f.id !== id),
+    }))
+  }
+
+  function atualizarFuncionarioLote(id: number, campo: string, valor: string) {
+    setLote(prev => ({
+      ...prev,
+      funcionarios: prev.funcionarios.map(f =>
+        f.id === id ? { ...f, [campo]: valor } : f
+      ),
+    }))
+  }
+
+  async function handleApontamentoLote() {
+    if (lote.funcionarios.length === 0) {
+      setMensagem({ tipo: 'erro', texto: 'Adicione pelo menos um funcionário.' })
+      return
+    }
+    const semNome = lote.funcionarios.filter(f => !f.funcionario)
+    if (semNome.length > 0) {
+      setMensagem({ tipo: 'erro', texto: 'Preencha o funcionário de todos os itens.' })
+      return
+    }
+    const obraSel = obras.find(o => o.codigo === lote.obra)
+    const ok = await send('apontamentos-batch', {
+      data: lote.data.split('-').reverse().join('/'),
+      obra: obraSel?.nome || lote.obra,
+      funcionarios: lote.funcionarios.map(f => ({
+        funcionario: f.funcionario, tipo: f.tipo,
+        almoco: f.almoco, veiculo: f.veiculo, obs: f.obs,
+      })),
+    })
+    if (ok) {
+      setLote({ data: new Date().toISOString().split('T')[0], obra: '', funcionarios: [] })
+      setFuncionarioLoteId(0)
+    }
+  }
   async function handleApontamento(e: React.FormEvent) {
     e.preventDefault()
     if (!apon.funcionario) return setMensagem({ tipo: 'erro', texto: 'Selecione o funcionário.' })
@@ -364,83 +429,199 @@ export default function LancamentoPage() {
 
       {/* ═══════════ APONTAMENTOS ═══════════ */}
       {tabAtiva === 'apontamentos' && (
-        <form onSubmit={handleApontamento} className="bg-white rounded-xl shadow-md p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-sercal-navy border-b pb-3">📝 Novo Apontamento</h2>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">📅 Data</label>
-              <input type="date" value={apon.data} onChange={e => setApon({...apon, data: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">📂 Tipo</label>
-              <select value={apon.tipo} onChange={e => setApon({...apon, tipo: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
-                <option value="Diária">Diária</option>
-                <option value="Registro">Registro</option>
-              </select>
-            </div>
+        <div className="space-y-4">
+          {/* Sub-tabs */}
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            <button onClick={() => setModoApontamento('individual')}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${modoApontamento === 'individual' ? 'bg-white text-sercal-navy shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              📝 Individual
+            </button>
+            <button onClick={() => setModoApontamento('lote')}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${modoApontamento === 'lote' ? 'bg-white text-sercal-navy shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              👥 Em Lote
+            </button>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">👤 Funcionário</label>
-            {funcionarios.length === 0 ? (
-              <div className="w-full border border-gray-300 rounded-lg px-3 py-4 bg-gray-50 text-center text-sm text-amber-600">
-                ⏳ Carregando funcionários...
+          {/* ─── Individual ─── */}
+          {modoApontamento === 'individual' && (
+            <form onSubmit={handleApontamento} className="bg-white rounded-xl shadow-md p-6 space-y-5">
+              <h2 className="text-lg font-semibold text-sercal-navy border-b pb-3">📝 Novo Apontamento</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">📅 Data</label>
+                  <input type="date" value={apon.data} onChange={e => setApon({...apon, data: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">📂 Tipo</label>
+                  <select value={apon.tipo} onChange={e => setApon({...apon, tipo: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
+                    <option value="Diária">Diária</option>
+                    <option value="Registro">Registro</option>
+                  </select>
+                </div>
               </div>
-            ) : (
-              <select value={apon.funcionario} onChange={e => setApon({...apon, funcionario: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
-                <option value="">Selecione o funcionário...</option>
-                {funcionarios.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
-            )}
-          </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">👤 Funcionário</label>
+                {funcionarios.length === 0 ? (
+                  <div className="w-full border border-gray-300 rounded-lg px-3 py-4 bg-gray-50 text-center text-sm text-amber-600">
+                    ⏳ Carregando funcionários...
+                  </div>
+                ) : (
+                  <select value={apon.funcionario} onChange={e => setApon({...apon, funcionario: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
+                    <option value="">Selecione o funcionário...</option>
+                    {funcionarios.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">🏗️ Obra <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <select value={apon.obra} onChange={e => setApon({...apon, obra: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
+                  <option value="">Nenhuma</option>
+                  {obras.map(o => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">🍽️ Almoço</label>
+                  <select value={apon.almoco} onChange={e => setApon({...apon, almoco: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
+                    <option value="Não">Não</option>
+                    <option value="Sim">Sim</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">🚗 Veículo <span className="text-gray-400 font-normal">(opcional)</span></label>
+                  <select value={apon.veiculo} onChange={e => setApon({...apon, veiculo: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
+                    <option value="">Nenhum</option>
+                    {veiculos.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">💬 Observações <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <input type="text" value={apon.obs} onChange={e => setApon({...apon, obs: e.target.value})} placeholder="Observações"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy" />
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                <strong>⚡ Automático:</strong> A planilha gera o ID (coluna B) automaticamente.
+              </div>
+              <button type="submit" disabled={salvando}
+                className="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition disabled:opacity-50">
+                {salvando ? 'Registrando...' : '📝 Registrar Apontamento'}
+              </button>
+            </form>
+          )}
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">🏗️ Obra <span className="text-gray-400 font-normal">(opcional)</span></label>
-            <select value={apon.obra} onChange={e => setApon({...apon, obra: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
-              <option value="">Nenhuma</option>
-              {obras.map(o => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
-            </select>
-          </div>
+          {/* ─── Em Lote ─── */}
+          {modoApontamento === 'lote' && (
+            <div className="bg-white rounded-xl shadow-md p-6 space-y-5">
+              <h2 className="text-lg font-semibold text-sercal-navy border-b pb-3">👥 Apontamento em Lote</h2>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">🍽️ Almoço</label>
-              <select value={apon.almoco} onChange={e => setApon({...apon, almoco: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
-                <option value="Não">Não</option>
-                <option value="Sim">Sim</option>
-              </select>
+              <p className="text-sm text-gray-500">
+                Defina a <strong>data</strong> e a <strong>obra</strong> uma única vez e adicione quantos funcionários precisar.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">📅 Data</label>
+                  <input type="date" value={lote.data} onChange={e => setLote({...lote, data: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">🏗️ Obra</label>
+                  <select value={lote.obra} onChange={e => setLote({...lote, obra: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
+                    <option value="">Selecione...</option>
+                    {obras.map(o => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">👤 Funcionários</h3>
+                  <button type="button" onClick={adicionarFuncionarioLote}
+                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg transition">
+                    ➕ Adicionar
+                  </button>
+                </div>
+
+                {lote.funcionarios.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                    <p className="text-sm">Nenhum funcionário adicionado.</p>
+                    <p className="text-xs mt-1">Clique em <strong>"Adicionar"</strong> para começar.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {lote.funcionarios.map((f, i) => (
+                      <div key={f.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-gray-500">#{i + 1}</span>
+                          <button type="button" onClick={() => removerFuncionarioLote(f.id)}
+                            className="text-xs text-red-500 hover:text-red-700 font-medium">✕ Remover</button>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Funcionário</label>
+                            {funcionarios.length === 0 ? (
+                              <div className="text-xs text-amber-600 py-1">⏳ Carregando...</div>
+                            ) : (
+                              <select value={f.funcionario} onChange={e => atualizarFuncionarioLote(f.id, 'funcionario', e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sercal-navy/20">
+                                <option value="">Selecione...</option>
+                                {funcionarios.map(nome => <option key={nome} value={nome}>{nome}</option>)}
+                              </select>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Tipo</label>
+                            <select value={f.tipo} onChange={e => atualizarFuncionarioLote(f.id, 'tipo', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sercal-navy/20">
+                              <option value="Diária">Diária</option>
+                              <option value="Registro">Registro</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Almoço</label>
+                            <select value={f.almoco} onChange={e => atualizarFuncionarioLote(f.id, 'almoco', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sercal-navy/20">
+                              <option value="Não">Não</option>
+                              <option value="Sim">Sim</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Veículo</label>
+                            <select value={f.veiculo} onChange={e => atualizarFuncionarioLote(f.id, 'veiculo', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sercal-navy/20">
+                              <option value="">Nenhum</option>
+                              {veiculos.map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="mt-2">
+                          <label className="block text-xs text-gray-500 mb-1">Obs <span className="text-gray-400">(opcional)</span></label>
+                          <input type="text" value={f.obs} onChange={e => atualizarFuncionarioLote(f.id, 'obs', e.target.value)}
+                            placeholder="Observações"
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sercal-navy/20" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button type="button" onClick={handleApontamentoLote}
+                disabled={salvando || lote.funcionarios.length === 0}
+                className="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition disabled:opacity-50">
+                {salvando ? 'Registrando...' : `🚀 Lançar Todos (${lote.funcionarios.length} apontamentos)`}
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">🚗 Veículo <span className="text-gray-400 font-normal">(opcional)</span></label>
-              <select value={apon.veiculo} onChange={e => setApon({...apon, veiculo: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
-                <option value="">Nenhum</option>
-                {veiculos.map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">💬 Observações <span className="text-gray-400 font-normal">(opcional)</span></label>
-            <input type="text" value={apon.obs} onChange={e => setApon({...apon, obs: e.target.value})} placeholder="Observações"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy" />
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-            <strong>⚡ Automático:</strong> A planilha gera o ID (coluna B) e calcula a coluna H automaticamente.
-          </div>
-
-          <button type="submit" disabled={salvando}
-            className="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition disabled:opacity-50">
-            {salvando ? 'Registrando...' : '📝 Registrar Apontamento'}
-          </button>
-        </form>
+          )}
+        </div>
       )}
     </div>
   )
