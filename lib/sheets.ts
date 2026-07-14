@@ -406,7 +406,7 @@ export async function addRecebimento(r: {
 }) {
   const hojeStr = hoje()
 
-  // Encontrar a primeira linha vazia (após os dados existentes)
+  // 1. Descobrir a próxima linha vazia
   const getRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: "'Recebimentos'!A:A",
@@ -414,22 +414,41 @@ export async function addRecebimento(r: {
   const linhas = getRes.data.values || []
   const proximaLinha = linhas.length + 1
 
-  // Escrever APENAS nas colunas de dados (A, C, D, E, M)
-  // Colunas B, F, G, H, I, J, K, L, N: ficam para fórmulas/script da planilha
+  // 2. Gerar o próximo ID automático (REC-001, REC-002...)
+  const resIds = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "'Recebimentos'!B:B",
+  })
+  const idsExistentes = resIds.data.values || []
+  let ultimoNumero = 0
+  for (const row of idsExistentes) {
+    const id = (row[0] || '').toString().trim()
+    if (id.startsWith('REC-')) {
+      const num = parseInt(id.replace('REC-', ''), 10)
+      if (!isNaN(num) && num > ultimoNumero) {
+        ultimoNumero = num
+      }
+    }
+  }
+  const novoId = `REC-${String(ultimoNumero + 1).padStart(3, '0')}`
+
+  // 3. Escrever TUDO (incluindo o ID na coluna B)
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
     requestBody: {
       valueInputOption: 'USER_ENTERED',
       data: [
-        { range: `'Recebimentos'!A${proximaLinha}`, values: [[hojeStr]] },
+        { range: `'Recebimentos'!A${proximaLinha}:B${proximaLinha}`, values: [[hojeStr, novoId]] },
         { range: `'Recebimentos'!C${proximaLinha}:E${proximaLinha}`, values: [[r.obra, r.valor, r.parcela]] },
         { range: `'Recebimentos'!M${proximaLinha}`, values: [[r.formaPagamento]] },
       ],
     },
   })
 
-  return 'ok'
+  return { id: novoId }
 }
+
+
 export async function addTransferencia(t: {
   caixaOrigem: string; caixaDestino: string
   valor: number; subcategoria: string; descricao: string
