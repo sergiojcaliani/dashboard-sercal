@@ -370,7 +370,7 @@ export async function addDespesa(d: {
 }) {
   const hojeStr = hoje()
 
-  // Encontrar a primeira linha vazia
+  // 1. Descobrir a próxima linha vazia
   const getRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: "'Despesas'!A:A",
@@ -378,14 +378,31 @@ export async function addDespesa(d: {
   const linhas = getRes.data.values || []
   const proximaLinha = linhas.length + 1
 
-  // Escrever APENAS nas colunas de dados (A, C-J)
-  // Coluna B = ID (planilha preenche), L = processado (vazio)
+  // 2. Gerar o próximo ID automático (DES-001, DES-002...)
+  const resIds = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "'Despesas'!B:B",
+  })
+  const idsExistentes = resIds.data.values || []
+  let ultimoNumero = 0
+  for (const row of idsExistentes) {
+    const id = (row[0] || '').toString().trim()
+    if (id.startsWith('DES-')) {
+      const num = parseInt(id.replace('DES-', ''), 10)
+      if (!isNaN(num) && num > ultimoNumero) {
+        ultimoNumero = num
+      }
+    }
+  }
+  const novoId = `DES-${String(ultimoNumero + 1).padStart(3, '0')}`
+
+  // 3. Escrever TUDO (incluindo o ID na coluna B)
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
     requestBody: {
       valueInputOption: 'USER_ENTERED',
       data: [
-        { range: `'Despesas'!A${proximaLinha}`, values: [[hojeStr]] },
+        { range: `'Despesas'!A${proximaLinha}:B${proximaLinha}`, values: [[hojeStr, novoId]] },
         { range: `'Despesas'!C${proximaLinha}:J${proximaLinha}`, values: [[
           d.obra, d.fornecedor, d.categoria,
           d.subcategoria, d.descricao, d.valor,
@@ -395,7 +412,7 @@ export async function addDespesa(d: {
     },
   })
 
-  return 'ok'
+  return { id: novoId }
 }
 
 export async function addRecebimento(r: {
