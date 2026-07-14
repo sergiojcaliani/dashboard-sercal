@@ -100,6 +100,7 @@ export default function DashboardPage() {
   }
 
   const totalGeral = caixas.reduce((acc, c) => acc + (c.saldo || 0), 0)
+  const maxAbs = Math.max(...caixas.map(c => Math.abs(c.saldo || 0)), 1)
 
   if (carregando) {
     return (
@@ -215,19 +216,19 @@ export default function DashboardPage() {
                 <tbody>
                   {lancamentos.map((l, i) => (
                     <tr key={i} className={`border-t ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                      <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 whitespace-nowrap">{l.data}</td>
-                      <td className="px-2 sm:px-4 py-1.5 sm:py-2.5">
+                      <td className="px-2 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">{l.data}</td>
+                      <td className="px-2 sm:px-4 py-2.5 sm:py-3">
                         <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap ${(l.tipo || '').toLowerCase() === 'receita' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {l.tipo || (parseFloat(String(l.valor)) > 0 ? 'Recebimento' : 'Despesa')}
                         </span>
                       </td>
-                      <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 max-w-[80px] sm:max-w-none truncate">{l.obra}</td>
-                      <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 hidden md:table-cell max-w-[100px] truncate">{l.clienteFornecedor}</td>
-                      <td className={`px-2 sm:px-4 py-1.5 sm:py-2.5 text-right font-medium whitespace-nowrap ${(l.tipo || '').toLowerCase() === 'receita' || (!l.tipo && parseFloat(String(l.valor)) > 0) ? 'text-green-600' : 'text-red-600'}`}>
+                      <td className="px-2 sm:px-4 py-2.5 sm:py-3 max-w-[80px] sm:max-w-none truncate">{l.obra}</td>
+                      <td className="px-2 sm:px-4 py-2.5 sm:py-3 hidden md:table-cell max-w-[100px] truncate">{l.clienteFornecedor}</td>
+                      <td className={`px-2 sm:px-4 py-2.5 sm:py-3 text-right font-medium whitespace-nowrap ${(l.tipo || '').toLowerCase() === 'receita' || (!l.tipo && parseFloat(String(l.valor)) > 0) ? 'text-green-600' : 'text-red-600'}`}>
                         R$ {formatValor(l.valor)}
                       </td>
-                      <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 hidden lg:table-cell">{l.caixa}</td>
-                      <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 hidden lg:table-cell">{l.formaPagamento}</td>
+                      <td className="px-2 sm:px-4 py-2.5 sm:py-3 hidden lg:table-cell">{l.caixa}</td>
+                      <td className="px-2 sm:px-4 py-2.5 sm:py-3 hidden lg:table-cell">{l.formaPagamento}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -282,10 +283,10 @@ export default function DashboardPage() {
                   <tbody>
                     {resumoObra.map((o, i) => (
                       <tr key={i} className={`border-t ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 font-medium max-w-[120px] truncate">{o.obra}</td>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-right text-green-600 whitespace-nowrap">R$ {formatValor(o.receitas)}</td>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-right text-red-600 whitespace-nowrap">R$ {formatValor(o.despesas)}</td>
-                        <td className={`px-2 sm:px-4 py-1.5 sm:py-2.5 text-right font-bold whitespace-nowrap ${o.saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 font-medium max-w-[120px] truncate">{o.obra}</td>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right text-green-600 whitespace-nowrap">R$ {formatValor(o.receitas)}</td>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right text-red-600 whitespace-nowrap">R$ {formatValor(o.despesas)}</td>
+                        <td className={`px-2 sm:px-4 py-2.5 sm:py-3 text-right font-bold whitespace-nowrap ${o.saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           R$ {formatValor(o.saldo)}
                         </td>
                       </tr>
@@ -349,19 +350,19 @@ export default function DashboardPage() {
                   <tbody>
                     {apontamentos.map((a, i) => (
                       <tr key={i} className={`border-t ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 whitespace-nowrap">{a.data}</td>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 font-medium max-w-[80px] truncate">{a.funcionario}</td>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5">
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">{a.data}</td>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 font-medium max-w-[80px] truncate">{a.funcionario}</td>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3">
                           <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap ${a.tipo === 'Diária' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
                             {a.tipo}
                           </span>
                         </td>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 hidden sm:table-cell max-w-[100px] truncate">{a.obra || '—'}</td>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-center hidden md:table-cell">
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 hidden sm:table-cell max-w-[100px] truncate">{a.obra || '—'}</td>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-center hidden md:table-cell">
                           <span className={a.almoco === 'Sim' ? 'text-green-600' : 'text-gray-400'}>{a.almoco || '—'}</span>
                         </td>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 hidden md:table-cell">{a.veiculo || '—'}</td>
-                        <td className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-gray-500 hidden lg:table-cell max-w-[120px] truncate">{a.obs || '—'}</td>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 hidden md:table-cell">{a.veiculo || '—'}</td>
+                        <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-gray-500 hidden lg:table-cell max-w-[120px] truncate">{a.obs || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
