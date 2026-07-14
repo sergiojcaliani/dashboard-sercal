@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 
 type Obra = { codigo: string; nome: string; cliente: string }
 type ListaAux = { tipo: string; valor: string }
-type Funcionario = { nome: string }
+type Funcionario = { nome: string; apelido: string }
 type TabType = 'recebimentos' | 'despesas' | 'transferencias' | 'apontamentos'
 
 const FORMAS_PAGAMENTO_FALLBACK = [
@@ -30,7 +30,7 @@ const TABS: { id: TabType; label: string; icon: string }[] = [
 export default function LancamentoPage() {
   const [tabAtiva, setTabAtiva] = useState<TabType>('recebimentos')
   const [obras, setObras] = useState<Obra[]>([])
-  const [funcionarios, setFuncionarios] = useState<string[]>([])
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
   const [veiculos, setVeiculos] = useState<string[]>([])
   const [carregandoObras, setCarregandoObras] = useState(true)
   const [categorias, setCategorias] = useState<string[]>(CATEGORIAS_FALLBACK)
@@ -83,7 +83,7 @@ export default function LancamentoPage() {
         if (resFunc.ok) {
           const json = await resFunc.json()
           const lista: Funcionario[] = json?.data || []
-          setFuncionarios(lista.map(f => f.nome).filter(Boolean))
+          setFuncionarios(lista)
         }
 
         if (resVeic.ok) {
@@ -471,7 +471,7 @@ export default function LancamentoPage() {
                   <select value={apon.funcionario} onChange={e => setApon({...apon, funcionario: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
                     <option value="">Selecione o funcionário...</option>
-                    {funcionarios.map(f => <option key={f} value={f}>{f}</option>)}
+                    {funcionarios.map(f => <option key={f.apelido} value={f.apelido}>{f.apelido} {f.nome ? `- ${f.nome}` : ''}</option>)}
                   </select>
                 )}
               </div>
@@ -573,7 +573,7 @@ export default function LancamentoPage() {
                               <select value={f.funcionario} onChange={e => atualizarFuncionarioLote(f.id, 'funcionario', e.target.value)}
                                 className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sercal-navy/20">
                                 <option value="">Selecione...</option>
-                                {funcionarios.map(nome => <option key={nome} value={nome}>{nome}</option>)}
+                                {funcionarios.map(f => <option key={f.apelido} value={f.apelido}>{f.apelido} {f.nome ? `- ${f.nome}` : ''}</option>)}
                               </select>
                             )}
                           </div>
