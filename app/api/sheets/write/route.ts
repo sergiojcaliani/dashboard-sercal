@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { addDespesa, addRecebimento, addTransferencia, addApontamento } from '@/lib/sheets'
+import { addDespesa, addRecebimento, addTransferencia, addApontamento, addApontamentosBatch } from '@/lib/sheets'
 
 export async function POST(request: Request) {
   try {
@@ -19,6 +19,9 @@ export async function POST(request: Request) {
         break
       case 'apontamento':
         result = await addApontamento(data)
+        break
+      case 'apontamentos-batch':
+        result = await addApontamentosBatch(data)
         break
       default:
         return NextResponse.json({ error: 'Ação inválida' }, { status: 400 })
