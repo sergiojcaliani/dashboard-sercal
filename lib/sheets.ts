@@ -325,15 +325,25 @@ export async function getVeiculos(): Promise<string[]> {
 export async function getFuncionarios(): Promise<Funcionario[]> {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "'Cadastro de Funcionários'!B:B",
+    range: "'Cadastro de Funcionários'!A:F",
   })
   const rows = res.data.values || []
   const funcionarios: Funcionario[] = []
   for (let i = 1; i < rows.length; i++) {
-    const nome = (rows[i]?.[0] || '').trim()
-    if (nome) funcionarios.push({ nome })
+    const r = rows[i]
+    if (!r || !r[0]) continue
+    funcionarios.push({
+      codigo: (r[0] || '').trim(),
+      apelido: (r[1] || '').trim(),
+      nome: (r[2] || '').trim(),
+      funcao: (r[3] || '').trim(),
+    })
   }
   return funcionarios
+}
+type ListaAuxiliar = {
+  tipo: string
+  valor: string
 }
 
 export async function getListasAuxiliares(): Promise<ListaAuxiliar[]> {
