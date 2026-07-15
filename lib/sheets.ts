@@ -284,19 +284,19 @@ export async function getUltimosLancamentosDashboard(dias: number = 7): Promise<
   return lancamentos.slice(0, 20)
 }
 
-export type Obra = { codigo: string; nome: string; cliente: string }
+export type Obra = { codigo: string; nome: string; cliente: string; endereco: string }
 
 export async function getObras(): Promise<Obra[]> {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "'Cadastro de obras'!A1:C100",
+    range: "'Cadastro de obras'!A1:D100",
   })
   const rows = res.data.values || []
   const obras: Obra[] = []
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i]
     if (!r[0]) continue
-    obras.push({ codigo: r[0], nome: r[1], cliente: r[2] || '' })
+    obras.push({ codigo: r[0], nome: r[1], cliente: r[2] || '', endereco: r[3] || '' })
   }
   return obras
 }
@@ -517,7 +517,7 @@ export async function addTransferencia(t: {
 
 export async function addApontamento(a: {
   funcionario: string; tipo: string; obra: string
-  almoco: string; veiculo: string; obs: string
+  almoco: string; veiculo: string; obs: string; km?: number
 }) {
   const hojeStr = hoje()
 
@@ -555,7 +555,7 @@ export async function addApontamento(a: {
         { range: `'Apontamento Diário'!A${proximaLinha}:B${proximaLinha}`, values: [[hojeStr, novoId]] },
         { range: `'Apontamento Diário'!C${proximaLinha}:I${proximaLinha}`, values: [[
           a.funcionario, a.tipo, a.obra,
-          a.almoco, a.veiculo, '', a.obs
+          a.almoco, a.veiculo, a.km ?? '', a.obs
         ]]},
       ],
     },
@@ -571,6 +571,7 @@ export async function addApontamentosBatch(params: {
     almoco: string
     veiculo: string
     obs: string
+    km?: number
   }>
 }) {
   const { data, obra, funcionarios } = params
@@ -606,7 +607,7 @@ export async function addApontamentosBatch(params: {
     const f = funcionarios[i]
     const novoId = `APO-${String(ultimoNumero + i + 1).padStart(3, '0')}`
     ids.push(novoId)
-    dataValues.push([data, novoId, f.funcionario, f.tipo, obra, f.almoco, f.veiculo, '', f.obs])
+    dataValues.push([data, novoId, f.funcionario, f.tipo, obra, f.almoco, f.veiculo, String(f.km ?? ''), f.obs])
   }
 
   await sheets.spreadsheets.values.update({
