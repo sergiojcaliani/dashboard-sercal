@@ -215,12 +215,12 @@ export async function getUltimosLancamentosDashboard(dias: number = 7): Promise<
 }
 
 // ✅ CORRIGIDO: Obra com distancia vindo da coluna L
-export type Obra = { codigo: string; nome: string; cliente: string; distancia: number }
+export type Obra = { codigo: string; nome: string; cliente: string; distancia: number; lucroPercent: number }
 
 export async function getObras(): Promise<Obra[]> {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "'Cadastro de obras'!A1:L100",
+    range: "'Cadastro de obras'!A1:W100",
   })
   const rows = res.data.values || []
   const obras: Obra[] = []
@@ -229,7 +229,9 @@ export async function getObras(): Promise<Obra[]> {
     if (!r[0]) continue
     const distStr = (r[11] || '0').toString().replace(',', '.')
     const distancia = parseFloat(distStr) || 0
-    obras.push({ codigo: r[0], nome: r[1], cliente: r[2] || '', distancia })
+    const lucroStr = (r[22] || '0').toString().replace(',', '.').replace('%', '')
+    const lucroPercent = parseFloat(lucroStr) || 0
+    obras.push({ codigo: r[0], nome: r[1], cliente: r[2] || '', distancia, lucroPercent })
   }
   return obras
 }
