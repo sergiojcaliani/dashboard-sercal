@@ -555,7 +555,7 @@ export async function addApontamento(a: {
         { range: `'Apontamento Diário'!A${proximaLinha}:B${proximaLinha}`, values: [[hojeStr, novoId]] },
         { range: `'Apontamento Diário'!C${proximaLinha}:I${proximaLinha}`, values: [[
           a.funcionario, a.tipo, a.obra,
-          a.almoco, a.veiculo, a.km ?? '', a.obs
+          a.almoco, a.veiculo, String(a.km ?? ''), a.obs
         ]]},
       ],
     },

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-type Obra = { codigo: string; nome: string; cliente: string }
+type Obra = { codigo: string; nome: string; cliente: string; endereco: string }
 type ListaAux = { tipo: string; valor: string }
 type Funcionario = { nome: string; apelido: string }
 type TabType = 'recebimentos' | 'despesas' | 'transferencias' | 'apontamentos'
@@ -41,7 +41,7 @@ export default function LancamentoPage() {
   const [rec, setRec] = useState({ data: new Date().toISOString().split('T')[0], obra: '', valor: '', parcela: '1', formaPagamento: 'Pix' })
   const [desp, setDesp] = useState({ data: new Date().toISOString().split('T')[0], obra: '', fornecedor: '', categoria: '', subcategoria: '', descricao: '', valor: '', caixaOrigem: 'SJC Edif.', formaPagamento: '' })
   const [transf, setTransf] = useState({ data: new Date().toISOString().split('T')[0], caixaOrigem: 'SJC Edificações', caixaDestino: 'Sercal Engenharia', valor: '', motivo: '', descricao: '' })
-  const [apon, setApon] = useState({ data: new Date().toISOString().split('T')[0], funcionario: '', tipo: 'Diária', obra: '', almoco: 'Não', veiculo: '', obs: '' })
+  const [apon, setApon] = useState({ data: new Date().toISOString().split('T')[0], funcionario: '', tipo: 'Diária', obra: '', almoco: 'Não', veiculo: '', obs: '', km: 0 })
   const [modoApontamento, setModoApontamento] = useState<'individual' | 'lote'>('individual')
   const [funcionarioLoteId, setFuncionarioLoteId] = useState(0)
   const [lote, setLote] = useState({
@@ -49,7 +49,7 @@ export default function LancamentoPage() {
     obra: '',
     funcionarios: [] as Array<{
       id: number; funcionario: string; tipo: string
-      almoco: string; veiculo: string; obs: string
+      almoco: string; veiculo: string; obs: string; km?: number
     }>,
   })
 
@@ -176,7 +176,7 @@ export default function LancamentoPage() {
       ...prev,
       funcionarios: [...prev.funcionarios, {
         id: novoId, funcionario: '', tipo: 'Diária',
-        almoco: 'Não', veiculo: '', obs: ''
+        almoco: 'Não', veiculo: '', obs: '', km: 0
       }],
     }))
   }
@@ -196,6 +196,18 @@ export default function LancamentoPage() {
       ),
     }))
   }
+  async function buscarDistanciaObra(codigoObra: string) {
+    if (!codigoObra) return 0
+    const obra = obras.find(o => o.codigo === codigoObra)
+    if (!obra || !obra.endereco) return 0
+    try {
+      const res = await fetch(`/api/distance?endereco=${encodeURIComponent(obra.endereco)}`)
+      const data = await res.json()
+      return data.distancia || 0
+    } catch {
+      return 0
+    }
+  }
 
   async function handleApontamentoLote() {
     if (lote.funcionarios.length === 0) {
@@ -214,6 +226,7 @@ export default function LancamentoPage() {
       funcionarios: lote.funcionarios.map(f => ({
         funcionario: f.funcionario, tipo: f.tipo,
         almoco: f.almoco, veiculo: f.veiculo, obs: f.obs,
+        km: f.km || undefined,
       })),
     })
     if (ok) {
@@ -232,8 +245,9 @@ export default function LancamentoPage() {
       almoco: apon.almoco,
       veiculo: apon.veiculo,
       obs: apon.obs,
+      km: apon.km || undefined,
     })
-    if (ok) setApon({ data: new Date().toISOString().split('T')[0], funcionario: '', tipo: 'Diária', obra: '', almoco: 'Não', veiculo: '', obs: '' })
+    if (ok) setApon({ data: new Date().toISOString().split('T')[0], funcionario: '', tipo: 'Diária', obra: '', almoco: 'Não', veiculo: '', obs: '', km: 0 })
   }
 
   return (
@@ -477,7 +491,12 @@ export default function LancamentoPage() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">🏗️ Obra <span className="text-gray-400 font-normal">(opcional)</span></label>
-                <select value={apon.obra} onChange={e => setApon({...apon, obra: e.target.value})}
+                                  <select value={apon.obra} onChange={async e => {
+                    const codigo = e.target.value
+                    setApon({...apon, obra: codigo})
+                    const km = await buscarDistanciaObra(codigo)
+                    setApon(prev => ({ ...prev, km }))
+                  }}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
                   <option value="">Nenhuma</option>
                   {obras.map(o => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
@@ -533,7 +552,17 @@ export default function LancamentoPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">🏗️ Obra</label>
-                  <select value={lote.obra} onChange={e => setLote({...lote, obra: e.target.value})}
+                  <select value={lote.obra} onChange={async e => {
+                    const codigo = e.target.value
+                    setLote(prev => ({ ...prev, obra: codigo }))
+                    const km = await buscarDistanciaObra(codigo)
+                    if (km > 0) {
+                      setLote(prev => ({
+                        ...prev,
+                        funcionarios: prev.funcionarios.map(f => ({ ...f, km }))
+                      }))
+                    }
+                  }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sercal-navy/20 focus:border-sercal-navy">
                     <option value="">Selecione...</option>
                     {obras.map(o => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
