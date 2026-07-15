@@ -491,7 +491,7 @@ export default function LancamentoPage() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">🏗️ Obra <span className="text-gray-400 font-normal">(opcional)</span></label>
-                                  <select value={apon.obra} onChange={async e => {
+                  <select value={apon.obra} onChange={async e => {
                     const codigo = e.target.value
                     setApon({...apon, obra: codigo})
                     const km = await buscarDistanciaObra(codigo)
